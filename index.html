@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sorting Algorithm Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    keyframes: {
+                        liftUp: { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-30px)' } },
+                        slideLeft: { '0%': { transform: 'translateX(0)' }, '100%': { transform: 'translateX(-100%)' } },
+                        slideRight: { '0%': { transform: 'translateX(0)' }, '100%': { transform: 'translateX(100%)' } },
+                        pulse: { '0%, 100%': { opacity: 1, transform: 'scale(1)' }, '50%': { opacity: 0.7, transform: 'scale(1.05)' } }
+                    },
+                    animation: {
+                        liftUp: 'liftUp 0.6s ease-in-out',
+                        slideLeft: 'slideLeft 0.6s ease-in-out forwards',
+                        slideRight: 'slideRight 0.6s ease-in-out forwards',
+                        pulse: 'pulse 0.6s ease-in-out infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom styles for array bars and transitions */
+        .bar-container {
+            display: flex;
+            align-items: flex-end; /* Align bars to the bottom */
+            justify-content: center;
+            min-height: 250px; /* Container height determines max bar height */
+            height: 300px; /* Explicit height can sometimes help consistency */
+            padding: 20px 0;
+            position: relative;
+            overflow: hidden; /* Hide potential overflow during animation */
+            border-bottom: 2px solid #e5e7eb;
+            margin-bottom: 1rem;
+        }
+        .bar {
+            width: 30px;
+            margin: 0 3px;
+            background-color: #60a5fa; /* Default blue */
+            color: white;
+            text-align: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+            border-radius: 4px 4px 0 0;
+            transition: height 0.3s ease, background-color 0.3s ease, transform 0.6s ease-in-out;
+            position: relative;
+            padding-top: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            /* True proportional scaling - no min-height % */
+        }
+        .bar-label {
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.75rem;
+            color: #4b5563;
+        }
+
+        /* Highlight classes */
+        .pivot { background-color: #facc15 !important; } /* Yellow - Pivot (QuickSort), Current element (Insertion), Min element (Selection) etc. */
+        .comparing { background-color: #f87171 !important; animation: pulse 0.6s ease-in-out infinite; } /* Red - General comparison */
+        .sorted { background-color: #22c55e !important; } /* Green - Element is in final sorted position */
+        .partition-a { border: 2px dashed #facc15; box-sizing: border-box; } /* Dashed Yellow for first partition (Merge Sort) */
+        .partition-b { border: 2px dashed #f87171; box-sizing: border-box; } /* Dashed Red for second partition (Merge Sort) */
+        .shifting { background-color: #fb923c !important; } /* Orange - Element shifting position (Insertion Sort) */
+
+
+        /* Swap animation classes */
+        .swapping-up { animation: liftUp 0.6s ease-in-out; z-index: 10; }
+
+        /* General control styling */
+        button, input[type="range"], select {
+            padding: 0.6rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease, box-shadow 0.2s ease;
+            font-weight: 500;
+        }
+        button:hover { box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        select {
+            appearance: none; background-color: white; border: 1px solid #d1d5db; padding-right: 2.5rem;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans p-4 md:p-8">
+
+    <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+        <h1 class="text-2xl md:text-3xl font-bold text-center text-blue-600 mb-6">Sorting Algorithm Visualizer</h1>
+
+        <div class="flex flex-col sm:flex-row items-center justify-center flex-wrap gap-4 mb-6 p-4 bg-gray-50 rounded-md border">
+             <div class="flex items-center gap-2">
+                <label for="algorithmSelect" class="text-sm font-medium text-gray-700">Algorithm:</label>
+                <select id="algorithmSelect" class="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <option value="quickSort" selected>Quick Sort</option>
+                    <option value="bubbleSort">Bubble Sort</option>
+                    <option value="insertionSort">Insertion Sort</option>
+                    <option value="selectionSort">Selection Sort</option>
+                    <option value="mergeSort">Merge Sort</option>
+                    <option value="heapSort">Heap Sort</option>
+                </select>
+            </div>
+             <div class="flex items-center gap-2">
+                <label for="arraySize" class="text-sm font-medium text-gray-700">Array Size:</label>
+                <select id="arraySize" class="border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <option value="5">5</option>
+                    <option value="8">8</option>
+                    <option value="10" selected>10</option>
+                    <option value="12">12</option>
+                    <option value="15">15</option>
+                    <option value="20">20</option>
+                </select>
+                <span id="sizeValue" class="text-sm font-medium text-gray-700 w-6 text-right">10</span>
+            </div>
+            <button id="generateArray" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md shadow">Generate & Prepare Sort</button>
+        </div>
+
+        <div id="arrayContainer" class="bar-container"></div>
+
+        <div id="stepInfo" class="text-center mb-4 p-3 bg-blue-50 rounded-md border border-blue-200 min-h-[3em]">
+            <p id="explanation" class="text-sm md:text-base text-gray-800">Select algorithm, size, and generate array.</p>
+            <p id="stepCounter" class="text-xs text-gray-500 mt-1"></p>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-center gap-3 mb-4">
+            <button id="resetBtn" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md shadow" disabled>Reset</button>
+            <button id="prevBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md shadow" disabled>Previous</button>
+            <button id="playPauseBtn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md shadow w-24" disabled>Play</button>
+            <button id="nextBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md shadow" disabled>Next</button>
+        </div>
+
+        <div class="px-4 mb-4">
+             <label for="timeline" class="text-sm font-medium text-gray-700 block mb-1">Timeline:</label>
+             <input type="range" id="timeline" min="0" max="0" value="0" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700" disabled>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const algorithmSelect = document.getElementById('algorithmSelect');
+        const arraySizeSelect = document.getElementById('arraySize');
+        const sizeValueSpan = document.getElementById('sizeValue');
+        const generateArrayBtn = document.getElementById('generateArray');
+        const arrayContainer = document.getElementById('arrayContainer');
+        const explanationP = document.getElementById('explanation');
+        const stepCounterP = document.getElementById('stepCounter');
+        const resetBtn = document.getElementById('resetBtn');
+        const prevBtn = document.getElementById('prevBtn');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const timelineSlider = document.getElementById('timeline');
+
+        // --- Configuration Constants ---
+        const FIXED_MIN_VALUE = 1;
+        const FIXED_MAX_VALUE = 50;
+        const ANIMATION_DURATION = 600;
+        const PLAYBACK_SPEED_FACTOR = 1.5;
+
+        // State Variables
+        let array = [];
+        let history = [];
+        let currentStep = -1;
+        let isPlaying = false;
+        let playInterval = null;
+        let isSorting = false;
+
+        // --- Initialization ---
+        generateAndDisplayArray();
+
+        // --- Event Listeners ---
+        algorithmSelect.addEventListener('change', () => {
+             if (!isSorting && !isPlaying) generateAndDisplayArray();
+        });
+        arraySizeSelect.addEventListener('change', () => {
+            sizeValueSpan.textContent = arraySizeSelect.value;
+            if (!isSorting && !isPlaying) generateAndDisplayArray();
+        });
+        generateArrayBtn.addEventListener('click', () => {
+             if (!isSorting && !isPlaying) generateAndDisplayArray();
+        });
+        resetBtn.addEventListener('click', resetVisualization);
+        prevBtn.addEventListener('click', stepBackward);
+        nextBtn.addEventListener('click', stepForward);
+        playPauseBtn.addEventListener('click', togglePlayback);
+        timelineSlider.addEventListener('input', jumpToStep);
+
+        // --- Core Functions ---
+
+        function resetVisualization() {
+            stopPlayback();
+            currentStep = -1;
+            renderStep(currentStep);
+            updateControls();
+            explanationP.textContent = "Array reset to initial state.";
+        }
+
+        function stepBackward() {
+             if (currentStep > -1) {
+                stopPlayback();
+                currentStep--;
+                renderStep(currentStep);
+                updateControls();
+            }
+        }
+
+        function stepForward() {
+            if (currentStep < history.length - 1) {
+                stopPlayback();
+                currentStep++;
+                renderStep(currentStep);
+                updateControls();
+            }
+        }
+
+        function togglePlayback() {
+             if (isPlaying) stopPlayback();
+             else startPlayback();
+        }
+
+        function jumpToStep() {
+            if (history.length > 0) {
+                stopPlayback();
+                currentStep = parseInt(timelineSlider.value, 10);
+                renderStep(currentStep);
+                updateControls(false);
+             }
+        }
+
+        function generateAndDisplayArray() {
+            stopPlayback();
+            isSorting = true;
+            updateControls();
+
+            const size = parseInt(arraySizeSelect.value, 10);
+            const selectedAlgorithm = algorithmSelect.value;
+
+            array = Array.from({ length: size }, () =>
+                Math.floor(Math.random() * (FIXED_MAX_VALUE - FIXED_MIN_VALUE + 1)) + FIXED_MIN_VALUE
+            );
+
+            history = [];
+            currentStep = -1;
+            addToHistory([...array], `Initial array generated. Algorithm: ${getAlgorithmName(selectedAlgorithm)}.`, {});
+
+            const arrayCopy = [...array];
+            switch (selectedAlgorithm) {
+                case 'quickSort':
+                    quickSort(arrayCopy, 0, arrayCopy.length - 1);
+                    break;
+                case 'bubbleSort':
+                    bubbleSort(arrayCopy);
+                    break;
+                case 'insertionSort':
+                    insertionSort(arrayCopy); // Call implemented function
+                    break;
+                case 'selectionSort':
+                    selectionSort(arrayCopy); // Call implemented function
+                    break;
+                case 'mergeSort':
+                    mergeSort(arrayCopy, 0, arrayCopy.length - 1); // Call implemented function
+                    break;
+                case 'heapSort':
+                    heapSort(arrayCopy); // Call implemented function
+                    break;
+                default:
+                    console.error("Unknown algorithm selected:", selectedAlgorithm);
+                    addToHistory(arrayCopy, "Unknown algorithm selected.", {});
+            }
+
+            // Add a final "sorted" state
+            if (history.length > 1) {
+                 const finalArray = history[history.length - 1].arrayState;
+                 addToHistory([...finalArray], 'Sorting complete.', { sortedIndices: Array.from(finalArray.keys()) });
+            }
+
+            isSorting = false;
+            renderStep(currentStep);
+            updateControls();
+        }
+
+        function getAlgorithmName(value) {
+            const option = algorithmSelect.querySelector(`option[value="${value}"]`);
+            return option ? option.textContent : 'Unknown';
+        }
+
+        function addToHistory(arrayState, explanation, highlights) {
+            highlights = highlights || {};
+            highlights.comparing = highlights.comparing || [];
+            highlights.swap = highlights.swap || [];
+            highlights.sortedIndices = highlights.sortedIndices || [];
+            highlights.partition = highlights.partition || []; // Used by QuickSort/MergeSort
+            highlights.pivot = highlights.pivot !== undefined ? highlights.pivot : null; // Ensure pivot exists or is null
+            highlights.shifting = highlights.shifting || []; // Used by InsertionSort
+            highlights.partitionA = highlights.partitionA || []; // MergeSort partition 1
+            highlights.partitionB = highlights.partitionB || []; // MergeSort partition 2
+
+            history.push({ arrayState: [...arrayState], explanation, highlights });
+        }
+
+        function renderStep(stepIndex) {
+            if (stepIndex < -1 || stepIndex >= history.length) return;
+
+            const state = stepIndex === -1 ? history[0] : history[stepIndex];
+            const displayArray = state.arrayState;
+            const highlights = state.highlights;
+            const explanation = state.explanation;
+
+            arrayContainer.innerHTML = '';
+
+            let swapAnimationIndices = null;
+            if (stepIndex >= 0 && stepIndex < history.length - 1) {
+                 const nextState = history[stepIndex + 1];
+                 if (nextState.highlights.swap && nextState.highlights.swap.length === 2) {
+                     const [index1, index2] = nextState.highlights.swap;
+                     if(displayArray[index1] === nextState.arrayState[index2] && displayArray[index2] === nextState.arrayState[index1]) {
+                        swapAnimationIndices = [index1, index2];
+                     }
+                 }
+            }
+
+            displayArray.forEach((value, index) => {
+                const bar = document.createElement('div');
+                bar.classList.add('bar');
+                const heightPercent = (value / FIXED_MAX_VALUE) * 100;
+                bar.style.height = `${heightPercent}%`;
+                bar.textContent = value;
+                bar.dataset.index = index;
+                const label = document.createElement('span');
+                label.classList.add('bar-label');
+                label.textContent = index;
+                bar.appendChild(label);
+
+                // Reset potential partition borders
+                bar.classList.remove('partition-a', 'partition-b');
+
+                // Apply highlight classes from history
+                if (highlights.pivot === index) bar.classList.add('pivot');
+                if (highlights.comparing?.includes(index)) bar.classList.add('comparing');
+                if (highlights.sortedIndices?.includes(index)) bar.classList.add('sorted');
+                if (highlights.shifting?.includes(index)) bar.classList.add('shifting'); // For Insertion Sort shifts
+
+                // Highlight partitions for Merge Sort
+                if (highlights.partitionA?.includes(index)) bar.classList.add('partition-a');
+                if (highlights.partitionB?.includes(index)) bar.classList.add('partition-b');
+
+                arrayContainer.appendChild(bar);
+            });
+
+             if (swapAnimationIndices) {
+                 animateSwap(swapAnimationIndices[0], swapAnimationIndices[1]);
+             }
+
+            explanationP.textContent = explanation;
+            stepCounterP.textContent = stepIndex >= 0 ? `Step: ${stepIndex + 1} / ${history.length}` : 'Initial State';
+            timelineSlider.max = history.length - 1;
+            timelineSlider.value = stepIndex;
+        }
+
+        function animateSwap(index1, index2) {
+            const bars = arrayContainer.querySelectorAll('.bar');
+            const i1 = Math.min(index1, index2);
+            const i2 = Math.max(index1, index2);
+            const bar1 = bars[i1];
+            const bar2 = bars[i2];
+            if (!bar1 || !bar2) return;
+            const rect1 = bar1.getBoundingClientRect();
+            const rect2 = bar2.getBoundingClientRect();
+            const distance = (rect2.left + rect2.width / 2) - (rect1.left + rect1.width / 2);
+            bar1.classList.add('swapping-up');
+            bar2.classList.add('swapping-up');
+            setTimeout(() => {
+                bar1.style.transform = `translateX(${distance}px)`;
+                bar2.style.transform = `translateX(${-distance}px)`;
+                 setTimeout(() => {
+                     bar1.classList.remove('swapping-up');
+                     bar2.classList.remove('swapping-up');
+                     bar1.style.transform = '';
+                     bar2.style.transform = '';
+                 }, ANIMATION_DURATION);
+            }, 50);
+        }
+
+        function updateControls(updateTimelineValue = true) {
+            const hasHistory = history.length > 0;
+            const isAtStart = currentStep <= -1;
+            const isAtEnd = currentStep >= history.length - 1;
+            resetBtn.disabled = !hasHistory || isSorting;
+            prevBtn.disabled = isAtStart || isPlaying || isSorting;
+            nextBtn.disabled = isAtEnd || isPlaying || isSorting;
+            playPauseBtn.disabled = isAtEnd || isSorting || history.length <= 1;
+            timelineSlider.disabled = !hasHistory || isPlaying || isSorting || history.length <= 1;
+            generateArrayBtn.disabled = isSorting || isPlaying;
+            arraySizeSelect.disabled = isSorting || isPlaying;
+            algorithmSelect.disabled = isSorting || isPlaying;
+            playPauseBtn.textContent = isPlaying ? 'Pause' : 'Play';
+            if (isPlaying) {
+                playPauseBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
+                playPauseBtn.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+            } else {
+                playPauseBtn.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                playPauseBtn.classList.add('bg-green-500', 'hover:bg-green-600');
+            }
+            if (updateTimelineValue) {
+                timelineSlider.value = currentStep;
+                timelineSlider.max = hasHistory ? history.length - 1 : 0;
+            }
+        }
+
+        function startPlayback() {
+             if (isPlaying || currentStep >= history.length - 1 || history.length <= 1) return;
+            isPlaying = true;
+            updateControls();
+            if (currentStep < history.length - 1) {
+                 currentStep++;
+                 renderStep(currentStep);
+                 updateControls();
+            } else { stopPlayback(); return; }
+            playInterval = setInterval(() => {
+                if (currentStep < history.length - 1) {
+                    currentStep++;
+                    renderStep(currentStep);
+                    updateControls();
+                } else { stopPlayback(); }
+            }, ANIMATION_DURATION * PLAYBACK_SPEED_FACTOR);
+        }
+
+        function stopPlayback() {
+             if (!isPlaying) return;
+            clearInterval(playInterval);
+            playInterval = null;
+            isPlaying = false;
+            updateControls();
+        }
+
+        function getCurrentSortedIndices(step = -1) {
+             const targetStep = step === -1 ? history.length - 1 : step;
+             if (targetStep < 0 || targetStep >= history.length) return [];
+             // Ensure we return a copy and handle potential undefined highlights or sortedIndices
+             const highlights = history[targetStep]?.highlights;
+             return highlights?.sortedIndices ? [...highlights.sortedIndices] : [];
+        }
+
+
+        // --- Sorting Algorithm Implementations ---
+
+        // --- Quick Sort ---
+        function quickSort(arr, low, high) { /* ... Existing Quick Sort ... */
+             if (low < high) {
+                const pi = partition(arr, low, high);
+                const currentSorted = getCurrentSortedIndices();
+                addToHistory([...arr], `Partitioned around pivot ${arr[pi]} (index ${pi}). Recursively sorting [${low}..${pi-1}] and [${pi+1}..${high}].`, { pivot: pi, partition: [low, high], sortedIndices: currentSorted });
+                quickSort(arr, low, pi - 1);
+                quickSort(arr, pi + 1, high);
+                let finalSorted = getCurrentSortedIndices();
+                finalSorted = [...new Set([...finalSorted, pi])];
+                addToHistory([...arr], `Pivot ${arr[pi]} (index ${pi}) is now in its final sorted position for range [${low}..${high}].`, { sortedIndices: finalSorted });
+            } else if (low === high && low >= 0 && low < arr.length) {
+                 let finalSorted = getCurrentSortedIndices();
+                 finalSorted = [...new Set([...finalSorted, low])];
+                 addToHistory([...arr], `Element ${arr[low]} (index ${low}) is sorted (single element partition).`, { sortedIndices: finalSorted });
+            }
+        }
+        function partition(arr, low, high) { /* ... Existing Partition ... */
+            const pivotValue = arr[high];
+            let i = low - 1;
+            let currentSorted = getCurrentSortedIndices();
+            addToHistory([...arr], `Choosing pivot: ${pivotValue} (index ${high}). Partitioning range [${low}..${high}].`, { pivot: high, partition: [low, high], sortedIndices: currentSorted });
+            for (let j = low; j < high; j++) {
+                currentSorted = getCurrentSortedIndices();
+                addToHistory([...arr], `Comparing ${arr[j]} (index ${j}) with pivot ${pivotValue}.`, { pivot: high, comparing: [j, high], partition: [low, high], sortedIndices: currentSorted });
+                if (arr[j] < pivotValue) {
+                    i++;
+                    addToHistory([...arr], `Swap: ${arr[i]} (index ${i}) <-> ${arr[j]} (index ${j}) because ${arr[j]} < ${pivotValue}.`, { pivot: high, comparing: [i,j], swap: [i, j], partition: [low, high], sortedIndices: currentSorted });
+                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                    addToHistory([...arr], `Array after swapping ${arr[j]} and ${arr[i]}.`, { pivot: high, partition: [low, high], sortedIndices: currentSorted });
+                } else {
+                     addToHistory([...arr], `${arr[j]} (index ${j}) >= pivot ${pivotValue}. No swap needed for i=${i}.`, { pivot: high, comparing: [j, high], partition: [low, high], sortedIndices: currentSorted });
+                }
+            }
+            const pivotFinalIndex = i + 1;
+            currentSorted = getCurrentSortedIndices();
+            addToHistory([...arr], `Swap pivot ${pivotValue} (index ${high}) with element at i+1: ${arr[pivotFinalIndex]} (index ${pivotFinalIndex}).`, { pivot: high, comparing: [pivotFinalIndex, high], swap: [pivotFinalIndex, high], partition: [low, high], sortedIndices: currentSorted });
+            [arr[pivotFinalIndex], arr[high]] = [arr[high], arr[pivotFinalIndex]];
+            addToHistory([...arr], `Pivot ${arr[pivotFinalIndex]} placed at final position ${pivotFinalIndex} for this partition.`, { pivot: pivotFinalIndex, partition: [low, high], sortedIndices: currentSorted });
+            return pivotFinalIndex;
+        }
+
+        // --- Bubble Sort ---
+        function bubbleSort(arr) { /* ... Existing Bubble Sort ... */
+            const n = arr.length;
+            let swapped;
+            let passes = 0;
+            let sortedCount = 0;
+            do {
+                swapped = false;
+                let currentSortedPassStart = getCurrentSortedIndices(); // Get sorted indices at start of pass
+                addToHistory([...arr], `Starting Pass ${passes + 1}.`, { sortedIndices: currentSortedPassStart });
+                for (let i = 0; i < n - 1 - passes; i++) {
+                    currentSortedPassStart = getCurrentSortedIndices(); // Ensure latest before comparison
+                    addToHistory([...arr], `Comparing ${arr[i]} (index ${i}) and ${arr[i+1]} (index ${i+1}).`, { comparing: [i, i+1], sortedIndices: currentSortedPassStart });
+                    if (arr[i] > arr[i+1]) {
+                        addToHistory([...arr], `Swap: ${arr[i]} > ${arr[i+1]}. Swapping elements at indices ${i} and ${i+1}.`, { comparing: [i, i+1], swap: [i, i+1], sortedIndices: currentSortedPassStart });
+                        [arr[i], arr[i+1]] = [arr[i+1], arr[i]];
+                        swapped = true;
+                        addToHistory([...arr], `Array after swapping elements at indices ${i} and ${i+1}.`, { comparing: [], sortedIndices: currentSortedPassStart }); // Clear comparing after swap shown
+                    } else {
+                         addToHistory([...arr], `${arr[i]} <= ${arr[i+1]}. No swap needed.`, { comparing: [i, i+1], sortedIndices: currentSortedPassStart });
+                    }
+                }
+                if (n - 1 - passes >= 0) {
+                    sortedCount++;
+                    const newlySortedIndex = n - 1 - passes;
+                    let finalSorted = getCurrentSortedIndices();
+                    finalSorted = [...new Set([...finalSorted, newlySortedIndex])];
+                    addToHistory([...arr], `Pass ${passes + 1} complete. Element ${arr[newlySortedIndex]} (index ${newlySortedIndex}) is now sorted.`, { sortedIndices: finalSorted });
+                }
+                passes++;
+            } while (swapped);
+             if (sortedCount < n) {
+                 const allIndices = Array.from(arr.keys());
+                 addToHistory([...arr], `Array already sorted or remaining elements sorted.`, { sortedIndices: allIndices });
+             }
+        }
+
+        // --- Insertion Sort ---
+        function insertionSort(arr) {
+            const n = arr.length;
+            // Assume element at index 0 is sorted initially
+            addToHistory([...arr], "Starting Insertion Sort. Element at index 0 is considered sorted.", { sortedIndices: [0] });
+
+            for (let i = 1; i < n; i++) {
+                let key = arr[i];
+                let j = i - 1;
+                let currentSorted = getCurrentSortedIndices(); // Get indices sorted so far
+
+                // Highlight the key element being inserted
+                addToHistory([...arr], `Selecting element ${key} (index ${i}) to insert into the sorted portion [0..${j}].`, { pivot: i, sortedIndices: currentSorted });
+
+                // Compare key with elements in the sorted portion, shifting larger elements right
+                while (j >= 0 && arr[j] > key) {
+                    currentSorted = getCurrentSortedIndices(); // Update sorted indices if needed (though they don't change during shifts)
+                    // Highlight comparison
+                    addToHistory([...arr], `Comparing ${key} with ${arr[j]} (index ${j}). Since ${arr[j]} > ${key}, shift ${arr[j]} right.`, { pivot: i, comparing: [j], shifting: [j+1], sortedIndices: currentSorted });
+
+                    arr[j + 1] = arr[j]; // Shift element to the right
+
+                    // Show state after shift
+                    addToHistory([...arr], `Element ${arr[j+1]} shifted from index ${j} to ${j+1}.`, { pivot: i, shifting: [j+1], sortedIndices: currentSorted });
+                    j = j - 1;
+                }
+
+                // Place the key in its correct position
+                arr[j + 1] = key;
+                let finalSorted = [...new Set([...getCurrentSortedIndices(), ...Array.from({length: i + 1}, (_, k) => k)])]; // Mark 0 to i as sorted
+
+                addToHistory([...arr], `Inserted ${key} at index ${j + 1}. Sorted portion is now [0..${i}].`, { sortedIndices: finalSorted });
+            }
+             // Final state already added by generateAndDisplayArray
+        }
+
+        // --- Selection Sort ---
+        function selectionSort(arr) {
+            const n = arr.length;
+            addToHistory([...arr], "Starting Selection Sort.", { sortedIndices: [] });
+
+            for (let i = 0; i < n - 1; i++) {
+                let min_idx = i;
+                let currentSorted = getCurrentSortedIndices();
+
+                // Highlight the starting element of the unsorted subarray
+                addToHistory([...arr], `Pass ${i + 1}: Finding minimum in unsorted portion [${i}..${n-1}]. Assume minimum is ${arr[min_idx]} (index ${min_idx}).`, { pivot: min_idx, sortedIndices: currentSorted });
+
+                // Find the minimum element in unsorted array
+                for (let j = i + 1; j < n; j++) {
+                    currentSorted = getCurrentSortedIndices();
+                    // Highlight comparison
+                    addToHistory([...arr], `Comparing current minimum ${arr[min_idx]} (index ${min_idx}) with ${arr[j]} (index ${j}).`, { pivot: min_idx, comparing: [j], sortedIndices: currentSorted });
+
+                    if (arr[j] < arr[min_idx]) {
+                        addToHistory([...arr], `Found new minimum: ${arr[j]} (index ${j}).`, { pivot: j, comparing: [], sortedIndices: currentSorted }); // Highlight new min as pivot
+                        min_idx = j; // Update index of minimum element
+                    }
+                }
+
+                // If minimum is not the starting element, swap
+                if (min_idx !== i) {
+                     currentSorted = getCurrentSortedIndices();
+                     // Highlight elements to be swapped
+                     addToHistory([...arr], `Minimum for pass ${i + 1} is ${arr[min_idx]} (index ${min_idx}). Swapping with element ${arr[i]} (index ${i}).`, { swap: [i, min_idx], sortedIndices: currentSorted });
+
+                     // Swap the found minimum element with the first element
+                     [arr[i], arr[min_idx]] = [arr[min_idx], arr[i]];
+
+                     // Show state after swap
+                     addToHistory([...arr], `Array after swapping minimum into index ${i}.`, { sortedIndices: currentSorted });
+                } else {
+                     addToHistory([...arr], `Element ${arr[i]} (index ${i}) is already in correct position for this pass.`, { pivot: i, sortedIndices: currentSorted });
+                }
+
+                // Mark the element at index i as sorted
+                 let finalSorted = [...new Set([...getCurrentSortedIndices(), i])];
+                 addToHistory([...arr], `Element ${arr[i]} (index ${i}) is now sorted.`, { sortedIndices: finalSorted });
+            }
+            // Mark the last element as sorted (it's sorted by default when n-1 elements are sorted)
+             let finalSorted = [...new Set([...getCurrentSortedIndices(), n-1])];
+             if (n > 0) { // Avoid index -1 if array is empty
+                 addToHistory([...arr], `Element ${arr[n-1]} (index ${n-1}) is now sorted.`, { sortedIndices: finalSorted });
+             }
+             // Final state already added by generateAndDisplayArray
+        }
+
+
+        // --- Merge Sort ---
+        function mergeSort(arr, l, r) {
+            if (l >= r) {
+                // Base case: array of size 0 or 1 is sorted
+                if (l === r && l >= 0 && l < arr.length) { // Add step for single element partition if desired
+                     addToHistory([...arr], `Base case: Subarray [${l}] is considered sorted.`, { sortedIndices: getCurrentSortedIndices(), partitionA: [l] });
+                }
+                return;
+            }
+            const m = l + Math.floor((r - l) / 2);
+            const currentSorted = getCurrentSortedIndices();
+
+            addToHistory([...arr], `Divide: Splitting subarray [${l}..${r}] into [${l}..${m}] and [${m + 1}..${r}].`, { sortedIndices: currentSorted, partitionA: Array.from({length: m - l + 1}, (_, k) => l + k), partitionB: Array.from({length: r - m}, (_, k) => m + 1 + k) });
+
+            mergeSort(arr, l, m);
+            mergeSort(arr, m + 1, r);
+            merge(arr, l, m, r);
+        }
+
+        function merge(arr, l, m, r) {
+            const n1 = m - l + 1;
+            const n2 = r - m;
+
+            // Create temp arrays
+            let L = new Array(n1);
+            let R = new Array(n2);
+            let currentSorted = getCurrentSortedIndices();
+
+             // Indices for highlighting original positions during merge comparison/placement
+             const leftIndices = Array.from({length: n1}, (_, k) => l + k);
+             const rightIndices = Array.from({length: n2}, (_, k) => m + 1 + k);
+
+            addToHistory([...arr], `Merge: Preparing to merge subarrays [${l}..${m}] and [${m + 1}..${r}].`, { sortedIndices: currentSorted, partitionA: leftIndices, partitionB: rightIndices });
+
+
+            // Copy data to temp arrays L[] and R[]
+            for (let i = 0; i < n1; i++) L[i] = arr[l + i];
+            for (let j = 0; j < n2; j++) R[j] = arr[m + 1 + j];
+
+            // Merge the temp arrays back into arr[l..r]
+            let i = 0; // Initial index of first subarray
+            let j = 0; // Initial index of second subarray
+            let k = l; // Initial index of merged subarray
+
+            while (i < n1 && j < n2) {
+                 currentSorted = getCurrentSortedIndices();
+                 // Highlight original indices corresponding to L[i] and R[j]
+                 addToHistory([...arr], `Merge: Comparing ${L[i]} (from left) and ${R[j]} (from right).`, { comparing: [l+i, m+1+j], sortedIndices: currentSorted, partitionA: leftIndices, partitionB: rightIndices });
+
+                if (L[i] <= R[j]) {
+                    arr[k] = L[i];
+                     addToHistory([...arr], `Merge: Placing ${L[i]} at index ${k}.`, { pivot: k, sortedIndices: currentSorted, partitionA: leftIndices, partitionB: rightIndices }); // Highlight placement
+                    i++;
+                } else {
+                    arr[k] = R[j];
+                     addToHistory([...arr], `Merge: Placing ${R[j]} at index ${k}.`, { pivot: k, sortedIndices: currentSorted, partitionA: leftIndices, partitionB: rightIndices }); // Highlight placement
+                    j++;
+                }
+                k++;
+            }
+
+            // Copy the remaining elements of L[], if there are any
+            while (i < n1) {
+                 currentSorted = getCurrentSortedIndices();
+                arr[k] = L[i];
+                 addToHistory([...arr], `Merge: Copying remaining left element ${L[i]} to index ${k}.`, { pivot: k, sortedIndices: currentSorted, partitionA: leftIndices, partitionB: rightIndices });
+                i++;
+                k++;
+            }
+
+            // Copy the remaining elements of R[], if there are any
+            while (j < n2) {
+                 currentSorted = getCurrentSortedIndices();
+                arr[k] = R[j];
+                 addToHistory([...arr], `Merge: Copying remaining right element ${R[j]} to index ${k}.`, { pivot: k, sortedIndices: currentSorted, partitionA: leftIndices, partitionB: rightIndices });
+                j++;
+                k++;
+            }
+             addToHistory([...arr], `Merge: Subarray [${l}..${r}] is now merged and sorted within itself.`, { sortedIndices: getCurrentSortedIndices() }); // Mark range as sorted? Merge sort doesn't guarantee global sort until end.
+        }
+
+
+        // --- Heap Sort ---
+        function heapSort(arr) {
+            const n = arr.length;
+            addToHistory([...arr], "Starting Heap Sort. Building Max Heap.", {});
+
+            // Build max heap (rearrange array)
+            for (let i = Math.floor(n / 2) - 1; i >= 0; i--) {
+                heapify(arr, n, i);
+            }
+             addToHistory([...arr], "Max Heap built. Root contains the largest element.", {});
+
+
+            // One by one extract an element from heap
+            for (let i = n - 1; i > 0; i--) {
+                let currentSorted = getCurrentSortedIndices();
+                // Highlight root and element at i for swap
+                addToHistory([...arr], `Extract Max: Swapping root ${arr[0]} with last heap element ${arr[i]} (index ${i}).`, { swap: [0, i], sortedIndices: currentSorted });
+
+                // Move current root to end
+                [arr[0], arr[i]] = [arr[i], arr[0]];
+
+                // Mark the swapped element (largest) as sorted
+                 let finalSorted = [...new Set([...currentSorted, i])];
+                 addToHistory([...arr], `Element ${arr[i]} (index ${i}) is now sorted. Reducing heap size.`, { sortedIndices: finalSorted });
+
+
+                // call max heapify on the reduced heap
+                addToHistory([...arr], `Heapify Root: Calling heapify on reduced heap (size ${i}) at root (index 0).`, { sortedIndices: finalSorted });
+                heapify(arr, i, 0); // Heap size is now i
+            }
+             // Mark the last remaining element (at index 0) as sorted
+             let finalSorted = [...new Set([...getCurrentSortedIndices(), 0])];
+             if (n > 0) {
+                 addToHistory([...arr], `Element ${arr[0]} (index 0) is now sorted.`, { sortedIndices: finalSorted });
+             }
+        }
+
+        // To heapify a subtree rooted with node i which is an index in arr[]. n is size of heap
+        function heapify(arr, n, i) {
+            let largest = i; // Initialize largest as root
+            let l = 2 * i + 1; // left = 2*i + 1
+            let r = 2 * i + 2; // right = 2*i + 2
+            let currentSorted = getCurrentSortedIndices();
+
+            let comparing = [i]; // Start comparing with root
+
+            // If left child is larger than root
+            if (l < n) {
+                 comparing.push(l);
+                 addToHistory([...arr], `Heapify(${i}): Comparing root ${arr[i]} with left child ${arr[l]}.`, { comparing: comparing, sortedIndices: currentSorted });
+                 if (arr[l] > arr[largest]) {
+                    largest = l;
+                 }
+            }
+
+            // If right child is larger than largest so far
+            if (r < n) {
+                 comparing.push(r);
+                 addToHistory([...arr], `Heapify(${i}): Comparing current largest ${arr[largest]} with right child ${arr[r]}.`, { comparing: comparing, sortedIndices: currentSorted });
+                 if (arr[r] > arr[largest]) {
+                    largest = r;
+                 }
+            }
+
+             // Clear comparison highlights for this node before potential swap/recursion
+             addToHistory([...arr], `Heapify(${i}): Largest among node ${i} and its children is ${arr[largest]} (index ${largest}).`, { sortedIndices: currentSorted });
+
+
+            // If largest is not root
+            if (largest !== i) {
+                 addToHistory([...arr], `Heapify(${i}): Swapping node ${arr[i]} (index ${i}) with largest child ${arr[largest]} (index ${largest}).`, { swap: [i, largest], sortedIndices: currentSorted });
+                [arr[i], arr[largest]] = [arr[largest], arr[i]];
+                 addToHistory([...arr], `Heapify(${i}): Array after swap.`, { sortedIndices: currentSorted });
+
+
+                // Recursively heapify the affected sub-tree
+                 addToHistory([...arr], `Heapify(${i}): Recursively calling heapify on affected subtree rooted at index ${largest}.`, { sortedIndices: currentSorted });
+                heapify(arr, n, largest);
+            } else {
+                 addToHistory([...arr], `Heapify(${i}): Node ${arr[i]} (index ${i}) is already largest. Heap property maintained.`, { sortedIndices: currentSorted });
+            }
+        }
+        // --- End Heap Sort ---
+
+
+    </script>
+
+</body>
+</html>
